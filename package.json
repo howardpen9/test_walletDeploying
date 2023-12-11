@@ -3,9 +3,7 @@
   "scripts": {
     "build": "tact --config ./tact.config.json",
     "test": "jest",
-    "deploy": "ts-node ./sources/contract.deploy.ts",
-    "api_deploy": "ts-node ./sources/contract.deploy_api.ts",
-    "read": "ts-node ./sources/contract.read.ts"
+    "deploy": "ts-node ./sources/contract.deploy.ts"
   },
   "dependencies": {
     "@orbs-network/ton-access": "^2.2.2",

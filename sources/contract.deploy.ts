@@ -1,36 +1,67 @@
-import { beginCell, contractAddress, toNano, Address } from "ton";
-import { deploy } from "./utils/deploy";
-import { printAddress, printDeploy, printHeader } from "./utils/print";
-// ================================================================= //
-import { NftCollection } from "./output/sample_NftCollection";
-// ================================================================= //
+import { fromNano, internal, TonClient, Address, WalletContractV4, TonClient4 } from "ton";
+import { getHttpEndpoint, getHttpV4Endpoint } from "@orbs-network/ton-access";
+import { KeyPair, mnemonicToPrivateKey } from "ton-crypto";
+import * as dotenv from "dotenv";
+dotenv.config();
+
+const string = `data:application/json,{"p":"ton-20","op":"mint","tick":"nano","amt":"100000000000"}`;
+
+async function sendTransaction(wallet: WalletContractV4, keyPair: KeyPair) {
+    const client = new TonClient({
+        endpoint: "https://mainnet.tonhubapi.com/jsonRPC",
+    });
+    let wallet_contract = client.open(wallet);
+    let secretKey = keyPair.secretKey;
+    let seqno: number = await wallet_contract.getSeqno();
+    let balance: bigint = await wallet_contract.getBalance();
+    console.log("Current deployment wallet balance: ", fromNano(balance).toString(), "💎TON");
+    console.log("Deploying contract: ", wallet.address.toString());
+
+    // Check if wallet has createTransfer method
+    if (typeof wallet.createTransfer !== "function") {
+        throw new Error("Invalid wallet contract object");
+    }
+
+    let tx = wallet.createTransfer({
+        seqno,
+        secretKey,
+        messages: [
+            internal({
+                to: wallet.address,
+                value: 0n,
+                body: string,
+            }),
+            internal({
+                to: wallet.address,
+                value: 0n,
+                body: string,
+            }),
+            internal({
+                to: wallet.address,
+                value: 0n,
+                body: string,
+            }),
+            internal({
+                to: wallet.address,
+                value: 0n,
+                body: string,
+            }),
+        ],
+    });
+    await wallet_contract.send(tx);
+}
 
 (async () => {
-    const OFFCHAIN_CONTENT_PREFIX = 0x01;
-    const string_first = "https://s.getgems.io/nft-staging/c/628f6ab8077060a7a8d52d63/"; // Change to the content URL you prepared
-    let newContent = beginCell().storeInt(OFFCHAIN_CONTENT_PREFIX, 8).storeStringRefTail(string_first).endCell();
-
-    // ===== Parameters =====
-    // Replace owner with your address
-    let owner = Address.parse("EQBBvGkvdAalLwkXgjLuVL-IgSvn-oPw_GLaOeUpu21Hvupz");
-
-    // Prepare the initial code and data for the contract
-    let init = await NftCollection.init(owner, newContent, {
-        $$type: "RoyaltyParams",
-        numerator: 350n, // 350n = 35%
-        denominator: 1000n,
-        destination: owner,
-    });
-
-    let address = contractAddress(0, init);
-    let deployAmount = toNano("0.1");
-    let testnet = true;
-
-    // The Transaction body we want to pass to the smart contract
-    let body = beginCell().storeUint(0, 32).storeStringTail("Mint").endCell();
-
-    // Do deploy
-    await deploy(init, deployAmount, body, testnet);
-    printHeader("sampleNFT_Contract");
-    printAddress(address);
+    let mnemonics = (process.env.mnemonics || "").toString(); // 🔴 Change to your own, by creating .env file!
+    let keyPair = await mnemonicToPrivateKey(mnemonics.split(" "));
+    let workchain = 0;
+    let wallet = WalletContractV4.create({ workchain, publicKey: keyPair.publicKey });
+    setInterval(async () => {
+        try {
+            await sendTransaction(wallet, keyPair);
+            console.log("Transaction sent at", new Date().toLocaleTimeString(), "\n");
+        } catch (error) {
+            console.error("Error in transaction:", error, "\n");
+        }
+    }, 10000); // Send transaction every 10 seconds
 })();
